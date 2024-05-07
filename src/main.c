@@ -2,6 +2,15 @@
 #include <SDL.h>
 #include <glad/gl.h>
 
+#pragma pack(push, 1)
+typedef struct Vertex {
+    float x;
+    float y;
+    float u;
+    float v;
+} Vertex;
+#pragma pack(pop)
+
 SDL_Window* window;
 SDL_GLContext context;
 
@@ -21,9 +30,18 @@ static const char* fragment_shader_code =
     "in vec2 fragUV;\n"
     "out vec4 outputColor;\n"
     "void main() {\n"
-    "    outputColor = vec4(1.0,0.0,0.0,0.10);\n"
+    "    outputColor = vec4(1.0,0.0,0.0,1.0);\n"
     //"    outputColor = texture(tex, fragUV);\n"
     "}";
+
+static const Vertex quad[6] = {
+    {-0.5f, -0.5f, 0.0f, 0.0f},
+    {-0.5f, 0.5f, 0.0f, 1.0f},
+    {0.5f, 0.5f, 1.0f, 1.0f},
+    {-0.5f, -0.5f, 0.0f, 0.0f},
+    {0.5f, 0.5f, 1.0f, 1.0f},
+    {0.5f, -0.5f, 1.0f, 0.0f},
+};
 
 void show_shader_log(GLuint shader) {
     if (glIsShader(shader)) {
@@ -106,6 +124,22 @@ int main(int argc, char* argv[]) {
     printf("Using OpenGL %d.%d\n", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
 
     GLuint program = compile_program(vertex_shader_code, fragment_shader_code);
+    glUseProgram(program);
+    GLint tex_loc = glGetUniformLocation(program, "tex");
+    GLint vert_loc = glGetAttribLocation(program, "vert");
+    GLint vertUV_loc = glGetAttribLocation(program, "vertUV");
+
+    GLuint vao;
+    GLuint vbo;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glEnableVertexAttribArray(vert_loc);
+    glVertexAttribPointer(vert_loc, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), NULL);
+    glEnableVertexAttribArray(vertUV_loc);
+    glVertexAttribPointer(vertUV_loc, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)(2 * sizeof(float)));
+    glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(Vertex), &quad, GL_STATIC_DRAW);
 
     int working = 1;
     while (working) {
@@ -119,8 +153,21 @@ int main(int argc, char* argv[]) {
         }
 
         glUseProgram(program);
+        glBindVertexArray(vao);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
         SDL_GL_SwapWindow(window);
         SDL_Delay(5);
+    }
+
+    if (glIsBuffer(vbo)) {
+        glDeleteBuffers(1, &vbo);
+    }
+    if (glIsVertexArray(vao)) {
+        glDeleteVertexArrays(1, &vao);
+    }
+    if (glIsProgram(program)) {
+        glDeleteProgram(program);
     }
 
     SDL_GL_DeleteContext(context);
